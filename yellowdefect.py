@@ -4,14 +4,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
 from sklearn import datasets
+from sklearn.metrics import precision_recall_fscore_support
 import matplotlib.pyplot as plt
 import matplotlib 
-
+import pandas as pd 
 tolList=[1e-4,1e-3,1e-2,1e-1,1e0,1e1,1e2,1e3,1e4]
 CList=[1e-4,1e-3,1e-2,1e-1,1e0,1e1,1e2,1e3,1e4]
-
+modelList = {'0': LinearSVC , '1' : LogisticRegression}    
 def buildModel(x_Train,y_Train,model='All'):
-    modelList = {'0': LinearSVC , '1' : LogisticRegression}    
     if model == 'All':
         arrList = []
         for idx in range(2) : 
@@ -37,31 +37,60 @@ def validateModel(modelList,x_validation,y_validation):
             pred = i.predict(x_validation)
             confusion = confusion_matrix(pred,y_validation)
             acc = accuracy_score(pred,y_validation)
+            preRe = precision_recall_fscore_support(pred,y_validation,average=None)
             table[idx].append(
                 {
                 'confusion' : np.array(confusion),
-                'accuracy' : acc
+                'accuracy' : acc,
+                'precisionRecall' : np.array(preRe[0:2])
                 }
             )
     return np.array(table)
 
-def reportTheReport(data,mode='confusion'):
+def reportTheReport(data,mode='overview'):
     print(data.shape)
+    if mode == 'overview':
+        dictList = {'Model' : []}
+        for idxModel,unpackData in enumerate(data) : 
+            for IteData in unpackData:
+                preData = np.concatenate((IteData['precisionRecall'],IteData['accuracy']),axis=None)
+                numIndex = 1 
+                for idx,i in enumerate(preData):
+                    if idx == len(preData) -1 :
+                        try :
+                            dictList['accuracy'].append(IteData['accuracy'])
+                        except:
+                            dictList['accuracy'] = [IteData['accuracy']]
+                    elif idx%2 == 0:
+                        try :
+                            dictList['precision{}'.format(numIndex)].append(i)
+                        except:
+                            dictList['precision{}'.format(numIndex)] = [i]
+                    else : 
+                        try :
+                            dictList['recall{}'.format(numIndex)].append(i)
+                            numIndex+= 1 
+                        except:
+                            dictList['recall{}'.format(numIndex)] = [i]
+                            numIndex+= 1 
+                dictList['Model'].append(modelList[str(idxModel)].__name__)
+        df = pd.DataFrame(dictList)
+        writer = pd.ExcelWriter("test.xlsx")
+        df.to_excel(writer)
     if mode == 'confusion':
         for unpackData in data : 
-            for IteData in unpackData:
+            for IteData in unpackData:         
+                print('--------------------')       
                 print(IteData['confusion'])
+                print('--------------------')
+                pass
+
 
 iris = datasets.load_iris()
-x = iris.data[:, :2]  # we only take the first two features.
+x = iris.data[:,:]  # we only take the first two features.
 y = iris.target
 
-
 arr = buildModel(x,y,'All')
-# print(arr.shape)
 data = validateModel(arr,x,y)
-# print(data)
-# data = [{'confusion' : np.array([[10,20],[20,10],[2,5]]),'accuracy' : 78.21},
-#         {'confusion' : np.array([[10,50],[2,21],[1,3]]),'accuracy' : 63.11}]
 reportTheReport(data = data)
 
